@@ -1,0 +1,80 @@
+---
+- name: Update Gitea binary
+  hosts: vm
+  become: true
+  gather_facts: true
+
+  vars:
+    gitea_target_version: "{{ target_gitea_version | default(gitea_version) }}"
+    gitea_target_arch: "{{ target_gitea_arch | default(gitea_arch) }}"
+    gitea_target_download_url: "https://dl.gitea.com/gitea/{{ gitea_target_version }}/gitea-{{ gitea_target_version }}-{{ gitea_target_arch }}"
+    gitea_download_tmp_path: "/tmp/gitea-{{ gitea_target_version }}-{{ gitea_target_arch }}"
+    gitea_binary_backup_path: "{{ gitea_binary_path }}.backup-before-{{ gitea_target_version }}"
+
+  tasks:
+    - name: Check current Gitea version
+      command: "{{ gitea_binary_path }} --version"
+      register: gitea_current_version
+      changed_when: false
+
+    - name: Show current Gitea version
+      debug:
+        var: gitea_current_version.stdout
+
+    - name: Download target Gitea binary
+      get_url:
+        url: "{{ gitea_target_download_url }}"
+        dest: "{{ gitea_download_tmp_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Stop Gitea service before update
+      systemd:
+        name: gitea
+        state: stopped
+
+    - name: Backup current Gitea binary
+      copy:
+        src: "{{ gitea_binary_path }}"
+        dest: "{{ gitea_binary_backup_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install target Gitea binary
+      copy:
+        src: "{{ gitea_download_tmp_path }}"
+        dest: "{{ gitea_binary_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Start Gitea service after update
+      systemd:
+        name: gitea
+        state: started
+        enabled: true
+
+    - name: Wait for Gitea HTTP port
+      wait_for:
+        host: "127.0.0.1"
+        port: "{{ gitea_http_port }}"
+        timeout: 60
+
+    - name: Check Gitea HTTP endpoint
+      uri:
+        url: "http://127.0.0.1:{{ gitea_http_port }}"
+        status_code: 200
+        return_content: false
+
+    - name: Check updated Gitea version
+      command: "{{ gitea_binary_path }} --version"
+      register: gitea_updated_version
+      changed_when: false
+
+    - name: Show updated Gitea version
+      debug:
+        var: gitea_updated_version.stdout
