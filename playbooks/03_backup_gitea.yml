@@ -1,0 +1,65 @@
+---
+- name: Backup Gitea
+  hosts: vm
+  become: true
+  gather_facts: true
+
+  vars:
+    gitea_remote_backup_dir: "/var/lib/gitea/backups"
+    gitea_backup_filename: "gitea-dump-{{ ansible_date_time.iso8601_basic_short }}.zip"
+    gitea_remote_backup_path: "{{ gitea_remote_backup_dir }}/{{ gitea_backup_filename }}"
+    gitea_local_backup_dir: "{{ inventory_dir }}/backups"
+
+  tasks:
+    - name: Ensure local backups directory exists
+      file:
+        path: "{{ gitea_local_backup_dir }}"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+
+    - name: Ensure remote Gitea backup directory exists
+      file:
+        path: "{{ gitea_remote_backup_dir }}"
+        state: directory
+        owner: "{{ gitea_user }}"
+        group: "{{ gitea_group }}"
+        mode: "0750"
+
+    - name: Stop Gitea service before backup
+      systemd:
+        name: gitea
+        state: stopped
+
+    - name: Create Gitea dump archive
+      become: true
+      command:
+        argv:
+          - "{{ gitea_binary_path }}"
+          - dump
+          - --verbose
+          - -f
+          - "{{ gitea_remote_backup_path }}"
+          - -w
+          - "{{ gitea_work_dir }}"
+          - -c
+          - "{{ gitea_config_file }}"
+      become_user: "{{ gitea_user }}"
+      changed_when: true
+
+    - name: Start Gitea service after backup
+      systemd:
+        name: gitea
+        state: started
+        enabled: true
+
+    - name: Download Gitea backup archive to local backups directory
+      fetch:
+        src: "{{ gitea_remote_backup_path }}"
+        dest: "{{ gitea_local_backup_dir }}/"
+        flat: true
+
+    - name: Show local backup path
+      debug:
+        msg: "Backup saved to {{ gitea_local_backup_dir }}/{{ gitea_backup_filename }}"

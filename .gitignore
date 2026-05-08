@@ -16,3 +16,7 @@ venv/
 # Temporary files
 *.tmp
 *.swp
+
+# Gitea backups
+backups/*
+!backups/.gitkeep
