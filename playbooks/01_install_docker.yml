@@ -6,7 +6,7 @@
 
   tasks:
     - name: Remove conflicting Docker packages
-      apt:
+      ansible.builtin.apt:
         name:
           - docker.io
           - docker-compose
@@ -19,7 +19,7 @@
       ignore_errors: true
 
     - name: Install required packages for Docker repository
-      apt:
+      ansible.builtin.apt:
         name:
           - ca-certificates
           - curl
@@ -27,19 +27,19 @@
         update_cache: true
 
     - name: Create directory for apt keyrings
-      file:
+      ansible.builtin.file:
         path: /etc/apt/keyrings
         state: directory
         mode: "0755"
 
     - name: Download Docker GPG key
-      get_url:
+      ansible.builtin.get_url:
         url: https://download.docker.com/linux/debian/gpg
         dest: /etc/apt/keyrings/docker.asc
         mode: "0644"
 
     - name: Add Docker apt repository
-      copy:
+      ansible.builtin.copy:
         dest: /etc/apt/sources.list.d/docker.sources
         mode: "0644"
         content: |
@@ -51,7 +51,7 @@
           Signed-By: /etc/apt/keyrings/docker.asc
 
     - name: Install Docker Engine packages
-      apt:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
@@ -62,13 +62,13 @@
         update_cache: true
 
     - name: Enable and start Docker service
-      systemd:
+      ansible.builtin.systemd:
         name: docker
         enabled: true
         state: started
 
     - name: Add devops user to docker group
-      user:
+      ansible.builtin.user:
         name: devops
         groups: docker
         append: true
@@ -79,5 +79,5 @@
       changed_when: false
 
     - name: Show Docker version
-      debug:
+      ansible.builtin.debug:
         var: docker_version.stdout

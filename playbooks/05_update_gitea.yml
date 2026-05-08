@@ -18,11 +18,11 @@
       changed_when: false
 
     - name: Show current Gitea version
-      debug:
+      ansible.builtin.debug:
         var: gitea_current_version.stdout
 
     - name: Download target Gitea binary
-      get_url:
+      ansible.builtin.get_url:
         url: "{{ gitea_target_download_url }}"
         dest: "{{ gitea_download_tmp_path }}"
         owner: root
@@ -30,12 +30,12 @@
         mode: "0755"
 
     - name: Stop Gitea service before update
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: stopped
 
     - name: Backup current Gitea binary
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_binary_path }}"
         dest: "{{ gitea_binary_backup_path }}"
         remote_src: true
@@ -44,7 +44,7 @@
         mode: "0755"
 
     - name: Install target Gitea binary
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_download_tmp_path }}"
         dest: "{{ gitea_binary_path }}"
         remote_src: true
@@ -53,19 +53,19 @@
         mode: "0755"
 
     - name: Start Gitea service after update
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: started
         enabled: true
 
     - name: Wait for Gitea HTTP port
-      wait_for:
+      ansible.builtin.wait_for:
         host: "127.0.0.1"
         port: "{{ gitea_http_port }}"
         timeout: 60
 
     - name: Check Gitea HTTP endpoint
-      uri:
+      ansible.builtin.uri:
         url: "http://127.0.0.1:{{ gitea_http_port }}"
         status_code: 200
         return_content: false
@@ -76,5 +76,5 @@
       changed_when: false
 
     - name: Show updated Gitea version
-      debug:
+      ansible.builtin.debug:
         var: gitea_updated_version.stdout

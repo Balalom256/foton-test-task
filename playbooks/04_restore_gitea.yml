@@ -14,28 +14,28 @@
 
   tasks:
     - name: Confirm restore operation
-      assert:
+      ansible.builtin.assert:
         that:
           - confirm_restore | bool
           - backup_file | length > 0
         fail_msg: "Restore is destructive. Run with -e 'backup_file=backups/<archive>.zip confirm_restore=true'."
 
     - name: Check local backup archive
-      stat:
+      ansible.builtin.stat:
         path: "{{ gitea_local_backup_path }}"
       register: local_backup_stat
       delegate_to: localhost
       become: false
 
     - name: Fail if local backup archive does not exist
-      assert:
+      ansible.builtin.assert:
         that:
           - local_backup_stat.stat.exists
           - local_backup_stat.stat.isreg
         fail_msg: "Local backup archive was not found: {{ gitea_local_backup_path }}"
 
     - name: Install restore dependencies
-      apt:
+      ansible.builtin.apt:
         name:
           - unzip
           - sqlite3
@@ -43,17 +43,17 @@
         update_cache: true
 
     - name: Stop Gitea service before restore
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: stopped
 
     - name: Recreate remote restore directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_restore_remote_dir }}"
         state: absent
 
     - name: Create remote restore directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_restore_extract_dir }}"
         state: directory
         owner: root
@@ -61,7 +61,7 @@
         mode: "0755"
 
     - name: Upload backup archive to remote host
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_local_backup_path }}"
         dest: "{{ gitea_restore_archive_path }}"
         owner: root
@@ -69,13 +69,13 @@
         mode: "0644"
 
     - name: Extract backup archive
-      unarchive:
+      ansible.builtin.unarchive:
         src: "{{ gitea_restore_archive_path }}"
         dest: "{{ gitea_restore_extract_dir }}"
         remote_src: true
 
     - name: Find SQL dump inside extracted backup
-      find:
+      ansible.builtin.find:
         paths: "{{ gitea_restore_extract_dir }}"
         patterns: "gitea-db.sql"
         recurse: true
@@ -83,17 +83,17 @@
       register: gitea_sql_dump_files
 
     - name: Fail if SQL dump was not found
-      assert:
+      ansible.builtin.assert:
         that:
           - gitea_sql_dump_files.matched | int == 1
         fail_msg: "Expected exactly one gitea-db.sql file in backup archive."
 
     - name: Set extracted dump root directory
-      set_fact:
+      ansible.builtin.set_fact:
         gitea_restore_dump_root: "{{ gitea_sql_dump_files.files[0].path | dirname }}"
 
     - name: Ensure extracted backup is readable by Gitea user
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_restore_dump_root }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -101,12 +101,12 @@
         recurse: true
 
     - name: Check app.ini inside backup
-      stat:
+      ansible.builtin.stat:
         path: "{{ gitea_restore_dump_root }}/app.ini"
       register: gitea_backup_app_ini
 
     - name: Restore app.ini if present in backup
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_restore_dump_root }}/app.ini"
         dest: "{{ gitea_config_file }}"
         remote_src: true
@@ -116,12 +116,12 @@
       when: gitea_backup_app_ini.stat.exists
 
     - name: Remove current Gitea data directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_data_dir }}"
         state: absent
 
     - name: Recreate Gitea data directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_data_dir }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -129,7 +129,7 @@
         mode: "0750"
 
     - name: Restore Gitea data files
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_restore_dump_root }}/data/"
         dest: "{{ gitea_data_dir }}/"
         remote_src: true
@@ -138,14 +138,14 @@
         mode: preserve
 
     - name: Remove SQLite database before SQL import
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_database_path }}"
         state: absent
 
     - name: Restore SQLite database from SQL dump
       become: true
       become_user: "{{ gitea_user }}"
-      command:
+      ansible.builtin.command:
         argv:
           - sqlite3
           - "{{ gitea_database_path }}"
@@ -153,12 +153,12 @@
       changed_when: true
 
     - name: Remove current Gitea repositories directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_repository_root }}"
         state: absent
 
     - name: Recreate Gitea repositories directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_repository_root }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -166,12 +166,12 @@
         mode: "0750"
 
     - name: Check repositories directory inside backup
-      stat:
+      ansible.builtin.stat:
         path: "{{ gitea_restore_dump_root }}/repos"
       register: gitea_backup_repos_dir
 
     - name: Restore Gitea repositories if present
-      copy:
+      ansible.builtin.copy:
         src: "{{ gitea_restore_dump_root }}/repos/"
         dest: "{{ gitea_repository_root }}/"
         remote_src: true
@@ -181,12 +181,12 @@
       when: gitea_backup_repos_dir.stat.exists
 
     - name: Show message if backup has no repositories directory
-      debug:
+      ansible.builtin.debug:
         msg: "Backup archive has no repos directory. Empty repositories directory was created."
       when: not gitea_backup_repos_dir.stat.exists
 
     - name: Fix Gitea work directory ownership
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_work_dir }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -194,7 +194,7 @@
         recurse: true
 
     - name: Ensure Gitea config permissions
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_config_file }}"
         state: file
         owner: root
@@ -202,23 +202,23 @@
         mode: "0660"
 
     - name: Start Gitea service after restore
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: started
         enabled: true
 
     - name: Wait for Gitea HTTP port
-      wait_for:
+      ansible.builtin.wait_for:
         host: "127.0.0.1"
         port: "{{ gitea_http_port }}"
         timeout: 60
 
     - name: Check Gitea HTTP endpoint
-      uri:
+      ansible.builtin.uri:
         url: "http://127.0.0.1:{{ gitea_http_port }}"
         status_code: 200
         return_content: false
 
     - name: Show restored backup archive
-      debug:
+      ansible.builtin.debug:
         msg: "Gitea was restored from {{ backup_file }}"

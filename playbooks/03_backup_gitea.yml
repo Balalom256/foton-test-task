@@ -12,7 +12,7 @@
 
   tasks:
     - name: Ensure local backups directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_local_backup_dir }}"
         state: directory
         mode: "0755"
@@ -20,7 +20,7 @@
       become: false
 
     - name: Ensure remote Gitea backup directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_remote_backup_dir }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -28,13 +28,13 @@
         mode: "0750"
 
     - name: Stop Gitea service before backup
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: stopped
 
     - name: Create Gitea dump archive
       become: true
-      command:
+      ansible.builtin.command:
         argv:
           - "{{ gitea_binary_path }}"
           - dump
@@ -49,17 +49,17 @@
       changed_when: true
 
     - name: Start Gitea service after backup
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: started
         enabled: true
 
     - name: Download Gitea backup archive to local backups directory
-      fetch:
+      ansible.builtin.fetch:
         src: "{{ gitea_remote_backup_path }}"
         dest: "{{ gitea_local_backup_dir }}/"
         flat: true
 
     - name: Show local backup path
-      debug:
+      ansible.builtin.debug:
         msg: "Backup saved to {{ gitea_local_backup_dir }}/{{ gitea_backup_filename }}"

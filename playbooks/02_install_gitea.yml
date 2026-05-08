@@ -6,7 +6,7 @@
 
   tasks:
     - name: Install required packages
-      apt:
+      ansible.builtin.apt:
         name:
           - git
           - ca-certificates
@@ -15,13 +15,13 @@
         update_cache: true
 
     - name: Create Gitea system group
-      group:
+      ansible.builtin.group:
         name: "{{ gitea_group }}"
         system: true
         state: present
 
     - name: Create Gitea system user
-      user:
+      ansible.builtin.user:
         name: "{{ gitea_user }}"
         group: "{{ gitea_group }}"
         system: true
@@ -32,7 +32,7 @@
         state: present
 
     - name: Create Gitea work directories
-      file:
+      ansible.builtin.file:
         path: "{{ item }}"
         state: directory
         owner: "{{ gitea_user }}"
@@ -46,7 +46,7 @@
         - "{{ gitea_repository_root }}"
 
     - name: Create Gitea config directory
-      file:
+      ansible.builtin.file:
         path: "{{ gitea_config_dir }}"
         state: directory
         owner: root
@@ -54,7 +54,7 @@
         mode: "0770"
 
     - name: Download Gitea binary
-      get_url:
+      ansible.builtin.get_url:
         url: "{{ gitea_download_url }}"
         dest: "{{ gitea_binary_path }}"
         owner: root
@@ -62,7 +62,7 @@
         mode: "0755"
 
     - name: Deploy Gitea configuration
-      template:
+      ansible.builtin.template:
         src: "{{ inventory_dir }}/templates/app.ini.j2"
         dest: "{{ gitea_config_file }}"
         owner: root
@@ -71,7 +71,7 @@
       notify: Restart Gitea
 
     - name: Deploy Gitea systemd service
-      template:
+      ansible.builtin.template:
         src: "{{ inventory_dir }}/templates/gitea.service.j2"
         dest: "{{ gitea_service_file }}"
         owner: root
@@ -82,7 +82,7 @@
         - Restart Gitea
 
     - name: Enable and start Gitea service
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         enabled: true
         state: started
@@ -94,15 +94,15 @@
       changed_when: false
 
     - name: Show Gitea version
-      debug:
+      ansible.builtin.debug:
         var: gitea_version_output.stdout
 
   handlers:
     - name: Reload systemd
-      systemd:
+      ansible.builtin.systemd:
         daemon_reload: true
 
     - name: Restart Gitea
-      systemd:
+      ansible.builtin.systemd:
         name: gitea
         state: restarted
