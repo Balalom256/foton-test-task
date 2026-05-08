@@ -2,9 +2,9 @@
 
 ## Назначение проекта
 
-Проект содержит Ansible-сценарии для настройки виртуальной машины Debian 12 в VirtualBox и развёртывания Gitea.
+Проект содержит Ansible playbook-и для настройки виртуальной машины Debian 12 в VirtualBox и развёртывания Gitea.
 
-Основные выполненные задачи:
+Выполненные задачи:
 
 - создана виртуальная машина Debian 12 в VirtualBox;
 - настроен SSH-доступ к VM по ключу;
@@ -14,7 +14,8 @@
 - Gitea настроена без SSH и без HTTPS;
 - база данных Gitea — SQLite;
 - директория репозиториев Gitea размещена в `/var/lib/gitea/repositories`;
-- реализованы playbook-и резервного копирования, восстановления и обновления Gitea.
+- реализованы playbook-и резервного копирования, восстановления и обновления Gitea;
+- playbook-и проходят проверку `ansible-lint`.
 
 ## Окружение
 
@@ -47,7 +48,7 @@ foton-test-task/
     └── .gitkeep
 ```
 
-## Важное замечание по запуску
+## Запуск из корня проекта
 
 Команды Ansible нужно выполнять из корня проекта:
 
@@ -82,7 +83,7 @@ debian12 | SUCCESS => {
 }
 ```
 
-## Проверка SSH-доступа
+## SSH-доступ
 
 SSH-доступ к VM выполняется по ключу:
 
@@ -92,7 +93,7 @@ ssh -i ~/.ssh/devops_vm devops@<vm_ip>
 
 IP-адрес VM указан в `inventory.ini`.
 
-Если IP изменился после перезагрузки VM или роутера, его можно проверить внутри Debian VM командой:
+Если IP изменился после перезагрузки VM или роутера, его можно проверить внутри Debian VM:
 
 ```bash
 hostname -I
@@ -108,7 +109,7 @@ ansible-playbook playbooks/00_ping.yml
 
 Назначение:
 
-- проверяет, что Ansible подключается к Debian VM;
+- проверяет подключение Ansible к Debian VM;
 - использует SSH-доступ по ключу;
 - возвращает `pong`.
 
@@ -124,7 +125,7 @@ ansible-playbook playbooks/01_install_docker.yml -K
 - устанавливает Docker Engine;
 - устанавливает Docker Compose plugin;
 - включает и запускает сервис Docker;
-- добавляет пользователя `devops` в группу `docker`.
+- добавляет пользователя Ansible в группу `docker`.
 
 Проверка после установки:
 
@@ -159,7 +160,7 @@ ansible-playbook playbooks/02_install_gitea.yml -K
 Репозитории: /var/lib/gitea/repositories
 База данных: SQLite
 HTTP порт: 3000
-SSH Gitea: отключён
+Gitea SSH: отключён
 HTTPS: не используется
 ```
 
@@ -181,18 +182,12 @@ ansible-playbook playbooks/03_backup_gitea.yml -K
 - останавливает Gitea перед созданием backup;
 - выполняет `gitea dump`;
 - запускает Gitea после backup;
-- скачивает архив backup в локальную директорию `backups/`.
+- скачивает backup-архив в локальную директорию `backups/`.
 
 Формат команды dump:
 
 ```bash
 gitea dump --verbose -f "<выходной архив дампа>.zip" -w /var/lib/gitea/ -c /etc/gitea/app.ini
-```
-
-Архивы backup сохраняются локально в:
-
-```text
-backups/
 ```
 
 Реальные `.zip`-архивы не добавляются в Git. В репозитории хранится только файл:
@@ -251,7 +246,14 @@ ansible-playbook playbooks/05_update_gitea.yml -K
 Для обновления до конкретной версии можно передать переменную:
 
 ```bash
-ansible-playbook playbooks/05_update_gitea.yml -K -e "target_gitea_version=1.26.1"
+ansible-playbook playbooks/05_update_gitea.yml -K -e "target_gitea_version=<версия>"
+```
+
+Перед обновлением рекомендуется выполнить резервное копирование:
+
+```bash
+ansible-playbook playbooks/03_backup_gitea.yml -K
+ansible-playbook playbooks/05_update_gitea.yml -K -e "target_gitea_version=<версия>"
 ```
 
 ## Проверка качества
@@ -261,27 +263,21 @@ ansible-playbook playbooks/05_update_gitea.yml -K -e "target_gitea_version=1.26.
 Проверка всех playbook-ов:
 
 ```bash
-ansible-lint playbooks/00_ping.yml
-ansible-lint playbooks/01_install_docker.yml
-ansible-lint playbooks/02_install_gitea.yml
-ansible-lint playbooks/03_backup_gitea.yml
-ansible-lint playbooks/04_restore_gitea.yml
-ansible-lint playbooks/05_update_gitea.yml
+ansible-lint playbooks/*.yml
 ```
 
-Для bash-скриптов используется `shellcheck`.
-
-Проверка:
+Проверка синтаксиса:
 
 ```bash
-shellcheck scripts/*.sh
+ansible-playbook playbooks/00_ping.yml --syntax-check
+ansible-playbook playbooks/01_install_docker.yml --syntax-check
+ansible-playbook playbooks/02_install_gitea.yml --syntax-check
+ansible-playbook playbooks/03_backup_gitea.yml --syntax-check
+ansible-playbook playbooks/04_restore_gitea.yml --syntax-check
+ansible-playbook playbooks/05_update_gitea.yml --syntax-check
 ```
 
-Если директории `scripts/` нет или bash-скрипты не используются, эта проверка не требуется.
-
 ## Порядок полного запуска
-
-Рекомендуемый порядок:
 
 ```bash
 cd ~/foton-test-task
@@ -309,3 +305,18 @@ git status
 ```text
 nothing to commit, working tree clean
 ```
+
+## Создание финального ZIP-архива
+
+Финальный архив лучше создавать через Git:
+
+```bash
+git archive --format=zip --output=foton-test-task.zip HEAD
+```
+
+Так в архив не попадут:
+
+- директория `.git`;
+- игнорируемые backup-архивы;
+- временные файлы редакторов;
+- другие неотслеживаемые файлы.
