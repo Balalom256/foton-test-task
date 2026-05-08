@@ -289,34 +289,3 @@ ansible-playbook playbooks/03_backup_gitea.yml -K
 ansible-playbook playbooks/04_restore_gitea.yml -K -e "backup_file=backups/<backup>.zip confirm_restore=true"
 ansible-playbook playbooks/05_update_gitea.yml -K
 ```
-
-## Git
-
-Backup-архивы не должны попадать в репозиторий.
-
-Проверка состояния:
-
-```bash
-git status
-```
-
-Перед публикацией на GitHub рабочее дерево должно быть чистым:
-
-```text
-nothing to commit, working tree clean
-```
-
-## Создание финального ZIP-архива
-
-Финальный архив лучше создавать через Git:
-
-```bash
-git archive --format=zip --output=foton-test-task.zip HEAD
-```
-
-Так в архив не попадут:
-
-- директория `.git`;
-- игнорируемые backup-архивы;
-- временные файлы редакторов;
-- другие неотслеживаемые файлы.
