@@ -1,0 +1,26 @@
+---
+gitea_version: "1.26.1"
+gitea_arch: "linux-amd64"
+
+gitea_user: "git"
+gitea_group: "git"
+
+gitea_work_dir: "/var/lib/gitea"
+gitea_custom_dir: "/var/lib/gitea/custom"
+gitea_data_dir: "/var/lib/gitea/data"
+gitea_log_dir: "/var/lib/gitea/log"
+gitea_repository_root: "/var/lib/gitea/repositories"
+
+gitea_config_dir: "/etc/gitea"
+gitea_config_file: "/etc/gitea/app.ini"
+gitea_binary_path: "/usr/local/bin/gitea"
+gitea_service_file: "/etc/systemd/system/gitea.service"
+
+gitea_http_addr: "0.0.0.0"
+gitea_http_port: 3000
+gitea_domain: "{{ ansible_host }}"
+gitea_root_url: "http://{{ ansible_host }}:{{ gitea_http_port }}/"
+
+gitea_database_path: "/var/lib/gitea/data/gitea.db"
+
+gitea_download_url: "https://dl.gitea.com/gitea/{{ gitea_version }}/gitea-{{ gitea_version }}-{{ gitea_arch }}"

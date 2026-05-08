@@ -1,0 +1,108 @@
+---
+- name: Install Gitea from binary
+  hosts: vm
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+
+    - name: Create Gitea system group
+      group:
+        name: "{{ gitea_group }}"
+        system: true
+        state: present
+
+    - name: Create Gitea system user
+      user:
+        name: "{{ gitea_user }}"
+        group: "{{ gitea_group }}"
+        system: true
+        shell: /bin/bash
+        home: "{{ gitea_work_dir }}"
+        create_home: false
+        comment: "Git Version Control"
+        state: present
+
+    - name: Create Gitea work directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ gitea_user }}"
+        group: "{{ gitea_group }}"
+        mode: "0750"
+      loop:
+        - "{{ gitea_work_dir }}"
+        - "{{ gitea_custom_dir }}"
+        - "{{ gitea_data_dir }}"
+        - "{{ gitea_log_dir }}"
+        - "{{ gitea_repository_root }}"
+
+    - name: Create Gitea config directory
+      file:
+        path: "{{ gitea_config_dir }}"
+        state: directory
+        owner: root
+        group: "{{ gitea_group }}"
+        mode: "0770"
+
+    - name: Download Gitea binary
+      get_url:
+        url: "{{ gitea_download_url }}"
+        dest: "{{ gitea_binary_path }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy Gitea configuration
+      template:
+        src: "{{ inventory_dir }}/templates/app.ini.j2"
+        dest: "{{ gitea_config_file }}"
+        owner: root
+        group: "{{ gitea_group }}"
+        mode: "0660"
+      notify: Restart Gitea
+
+    - name: Deploy Gitea systemd service
+      template:
+        src: "{{ inventory_dir }}/templates/gitea.service.j2"
+        dest: "{{ gitea_service_file }}"
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - Reload systemd
+        - Restart Gitea
+
+    - name: Enable and start Gitea service
+      systemd:
+        name: gitea
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Check Gitea version
+      command: "{{ gitea_binary_path }} --version"
+      register: gitea_version_output
+      changed_when: false
+
+    - name: Show Gitea version
+      debug:
+        var: gitea_version_output.stdout
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+    - name: Restart Gitea
+      systemd:
+        name: gitea
+        state: restarted
