@@ -1,0 +1,8 @@
+---
+- name: Check Ansible connection to Debian VM
+  hosts: vm
+  gather_facts: false
+
+  tasks:
+    - name: Ping VM through Ansible
+      ping:
